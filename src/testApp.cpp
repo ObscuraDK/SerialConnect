@@ -1,4 +1,5 @@
 #include "testApp.h"
+#include <ctime>
 
 //--------------------------------------------------------------
 void testApp::setup()
@@ -11,19 +12,32 @@ void testApp::setup()
     serialInit();
     guiInit();
     
-    serialSend(1);
+    //serialSend(1);
 }
 
 void testApp::guiInit()
 {
     drawPadding = false;
     gui = new ofxUICanvas();
+    gui->getRect()->y = 22;
 	gui->addLabel("InFocus 3128HD", OFX_UI_FONT_LARGE);
     gui->addSpacer();
     
+    // PWR
     vector<string> pwr_names; pwr_names.push_back("ON"); pwr_names.push_back("OFF");
 	gui->addLabel("PWR manage", OFX_UI_FONT_MEDIUM);
 	gui->addRadio("HR", pwr_names, OFX_UI_ORIENTATION_HORIZONTAL);
+    
+    // Source
+    gui->addSpacer();
+    vector<string> pwr_source; pwr_source.push_back("HDMI1"); pwr_source.push_back("HDMI2");
+	gui->addLabel("Source", OFX_UI_FONT_MEDIUM);
+	gui->addRadio("HR", pwr_source, OFX_UI_ORIENTATION_HORIZONTAL);
+    
+    gui->addSpacer();
+    vector<string> pwr_autoSource; pwr_autoSource.push_back("ON"); pwr_autoSource.push_back("OFF");
+	gui->addLabel("AutoSource", OFX_UI_FONT_MEDIUM);
+	gui->addRadio("HR", pwr_autoSource, OFX_UI_ORIENTATION_HORIZONTAL);
     
     gui->autoSizeToFitWidgets();
     ofAddListener(gui->newGUIEvent,this,&testApp::guiEvent);
@@ -51,7 +65,12 @@ void testApp::serialSend(int type)
 {
     switch (type)
     {
-        case 1: cout << "PWR status?" << endl;
+        case 1: cout << "PWR send ON!" << endl;
+            serial.writeBytes(&buf_pwr_on[0], 7);
+            break;
+        case 2: cout << "PWR send OFF!" << endl;
+            serial.writeBytes(&buf_pwr_off[0], 7);
+            break;
     }
     
     nTimesRead = 0;
@@ -59,26 +78,6 @@ void testApp::serialSend(int type)
 	readTime = 0;
 	memset(bytesReadString, 0, 4);
     
-    // PWR status
-    serial.writeBytes(&buf_pwr[0], 6);
-    nTimesRead = 0;
-    nBytesRead = 0;
-    int nRead  = 0;  // a temp variable to keep count per read
-    
-    unsigned char bytesReturned[3];
-    
-    memset(bytesReadString, 0, 4);
-    memset(bytesReturned, 0, 3);
-    
-    while( (nRead = serial.readBytes( bytesReturned, 3)) > 0){
-        nTimesRead++;
-        nBytesRead = nRead;
-    };
-    
-    memcpy(bytesReadString, bytesReturned, 3);
-    
-    bSendSerialMessage = false;
-    readTime = ofGetElapsedTimef();
 }
 
 //--------------------------------------------------------------
@@ -111,6 +110,17 @@ void testApp::guiEvent(ofxUIEventArgs &e)
     {
         ofxUIToggle *toggle = (ofxUIToggle *) e.widget;
         cout << name << "\t value: " << toggle->getValue() << endl;
+        
+        // if on
+        if (name == "1")
+        {
+            serialSend(1);
+        }
+        // if off
+        if (name == "2")
+        {
+            serialSend(2);
+        }
     }
 }
 //--------------------------------------------------------------
@@ -138,4 +148,12 @@ void testApp::keyPressed(int key)
         default:
             break;
     }
+}
+
+//--- Timer
+inline void mySleep(clock_t sec) // clock_t is a like typedef unsigned int clock_t. Use clock_t instead of integer in this context
+{
+    clock_t start_time = clock();
+    clock_t end_time = sec * 1000 + start_time;
+    while(clock() != end_time);
 }
